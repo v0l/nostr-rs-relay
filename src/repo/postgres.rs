@@ -60,7 +60,7 @@ async fn cleanup_expired(conn: PostgresPool, frequency: Duration) -> Result<()> 
                     }
                 }
             }
-            ;
+
         }
     });
     Ok(())
@@ -158,7 +158,7 @@ ON CONFLICT (id) DO NOTHING"#,
                     .and_then(|x| Utc.timestamp_opt(x as i64, 0).latest()),
             )
             .bind(e.kind as i64)
-            .bind(event_str.into_bytes())
+            .bind(event_str)
             .bind(delegator_blob)
             .execute(&mut tx)
             .await?
@@ -394,7 +394,7 @@ ON CONFLICT (id) DO NOTHING"#,
                 }
 
                 row_count += 1;
-                let event_json: Vec<u8> = row.unwrap().get(0);
+                let event_json: String = row.unwrap().get(0);
                 loop {
                     if query_tx.capacity() != 0 {
                         // we have capacity to add another item
@@ -422,7 +422,7 @@ ON CONFLICT (id) DO NOTHING"#,
                 query_tx
                     .send(QueryResult {
                         sub_id: sub.get_id(),
-                        event: String::from_utf8(event_json).unwrap(),
+                        event: event_json,
                     })
                     .await
                     .ok();
@@ -868,6 +868,16 @@ fn query_from_filter(f: &ReqFilter) -> Option<QueryBuilder<Postgres>> {
         query
             .push("e.created_at <= ")
             .push_bind(Utc.timestamp_opt(f.until.unwrap() as i64, 0).unwrap());
+    }
+
+    if let Some(search) = &f.search {
+        if push_and {
+            query.push(" AND ");
+        }
+        push_and = true;
+        query.push("e.ts_content @@ websearch_to_tsquery(")
+            .push_bind(search.clone())
+            .push(")");
     }
 
     // never display hidden events
