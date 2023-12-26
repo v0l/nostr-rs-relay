@@ -331,12 +331,14 @@ mod m006 {
             sql: vec![
                 r#"
 --- Use text column for content
-ALTER TABLE "event" ALTER COLUMN "content" TYPE text USING convert_from("content", 'utf-8);
+ALTER TABLE "event" ALTER COLUMN "content" TYPE text USING convert_from("content", 'utf-8');
+
+--- Add lang column for better indexing (lang defaults to english)
+ALTER table "event" ADD lang regconfig NOT NULL DEFAULT 'english'::regconfig;
 
 --- Create search col for event content
-ALTER TABLE event
-ADD COLUMN ts_content tsvector
-GENERATED ALWAYS AS (to_tsvector('english'::regconfig, content::json->>'content'::text)) stored;
+ALTER TABLE "event" ADD ts_content tsvector NULL
+GENERATED ALWAYS AS (to_tsvector("lang", "content"::json->>'content')) STORED;
 
 CREATE INDEX ts_content_idx ON event USING GIN (ts_content);
 "#,
