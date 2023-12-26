@@ -336,7 +336,7 @@ ALTER TABLE "event" ALTER COLUMN "content" TYPE text USING convert_from("content
 --- Create search col for event content
 ALTER TABLE event
 ADD COLUMN ts_content tsvector
-GENERATED ALWAYS AS (to_tsvector('english', "content"::json->>'content')) stored;
+GENERATED ALWAYS AS (to_tsvector('english'::regconfig, content::json->>'content'::text)) stored;
 
 CREATE INDEX ts_content_idx ON event USING GIN (ts_content);
 "#,
